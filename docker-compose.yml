@@ -1,6 +1,6 @@
 services:
   meteo-bot:
-    build: .
+    image: ghcr.io/sknarovs/lvgmc-bot:main
     container_name: meteo-bot
     restart: unless-stopped
     env_file: .env
