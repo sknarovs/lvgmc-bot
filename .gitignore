@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+meteobot.db
+user_cities.json
+.env
+venv/
+.dockerconfig
