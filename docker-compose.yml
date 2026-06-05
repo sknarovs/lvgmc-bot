@@ -3,11 +3,8 @@ services:
     image: ghcr.io/sknarovs/lvgmc-bot:main
     container_name: meteo-bot
     restart: unless-stopped
-    env_file: .env
     environment:
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - DB_PATH=/app/data/meteobot.db
     volumes:
-      - meteobot-data:/app/data
-
-volumes:
-  meteobot-data:
+      - ./data:/app/data
