@@ -393,28 +393,19 @@ def format_hourly_forecast(data, hours=12):
         if count >= hours:
             break
 
-        temp = entry.get("temperatura", "-")
         feels = entry.get("sajutu_temperatura", "-")
         precip = entry.get("nokrisni_1h", "-")
         icon = entry.get("laika_apstaklu_ikona", "")
-        thunder = entry.get("perkons", "-")
 
         emoji = icon_to_emoji(icon)
 
-        day_of_week = ["Pir", "Sek", "Tre", "Cet", "Pie", "Ses", "Svē"][dt.weekday()]
-        date_str = dt.strftime(f"%d.%m ({day_of_week}) %H:00")
+        time_str = dt.strftime("%H:00")
 
         precip_str = ""
         if precip and precip != "-" and float(precip) > 0:
-            precip_str = f" 🌧️{precip}mm"
+            precip_str = f" {round(float(precip), 1)}mm"
 
-        thunder_str = ""
-        if thunder and thunder != "-" and float(thunder) > 0:
-            thunder_str = " ⛈️"
-
-        feels_str = f" (jūt.{feels}°C)" if feels and feels != "-" else ""
-
-        lines.append(f"{emoji} {date_str}: *{temp}°C*{feels_str}{precip_str}{thunder_str}")
+        lines.append(f"{emoji} {time_str} *{feels}°C*{precip_str}")
         count += 1
 
     return "\n".join(lines)

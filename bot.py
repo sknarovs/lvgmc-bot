@@ -209,8 +209,16 @@ async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def forecast_hourly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     city = get_user_city(update.effective_user.id)
+    hours = 12
     if context.args:
-        city = " ".join(context.args)
+        try:
+            hours = int(context.args[-1])
+            hours = min(max(hours, 1), 48)
+            city_args = context.args[:-1]
+            if city_args:
+                city = " ".join(city_args)
+        except ValueError:
+            city = " ".join(context.args)
     logger.info("/forecast_h from user %s for city '%s'", update.effective_user.id, city)
 
     cities = get_forecast_cities()
@@ -221,13 +229,6 @@ async def forecast_hourly_command(update: Update, context: ContextTypes.DEFAULT_
 
     data = get_forecast(match, hourly=True)
     if data:
-        hours = 12
-        if context.args:
-            try:
-                hours = int(context.args[-1])
-                hours = min(max(hours, 1), 48)
-            except ValueError:
-                pass
         msg = format_hourly_forecast(data, hours=hours)
         if len(msg) > 4096:
             for i in range(0, len(msg), 4096):
@@ -275,7 +276,7 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     time_arg = context.args[0]
-    schedule_type = "forecast"
+    schedule_type = "forecast_h"
     if len(context.args) > 1 and context.args[1].lower() in ("weather", "forecast", "forecast_h"):
         schedule_type = context.args[1].lower()
 
@@ -338,7 +339,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🌤️ *LVĢMC Laika apstākļu bots*\n\n"
         "📍 *Pilsēta:*\n"
         "/city — izvēlēties pilsētu no saraksta\n"
-        "Patreizējā: *" + city + "*\n\n"
+        "Pašreizējā: *" + city + "*\n\n"
         "🌧️ *Laika apstākļi:*\n"
         "/weather — pašreizējie novērojumi\n"
         "/weather Daugavpils — cita pilsēta\n\n"
@@ -353,9 +354,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/synoptic — LVĢMC teksta prognoze\n\n"
         "⏰ *Ikdienas grafiki:*\n"
         "/schedule 9:00 — katru dienu 9:00 prognoze\n"
-        "/schedule 8:30 weather — katldien 8:30 laika apstākļi\n"
-        "/schedule 18:00 forecast\\_h — katldien 18:00 stundu prognoze\n"
-        "/schedule — parādit patreizējos grafikus\n"
+        "/schedule 8:30 weather — katru dienu 8:30 laika apstākļi\n"
+        "/schedule 18:00 forecast\\_h — katru dienu 18:00 stundu prognoze\n"
+        "/schedule — parādīt pašreizējos grafikus\n"
         "/unschedule — noņemt visus grafikus\n"
         "/unschedule weather — noņemt konkrētu grafiku\n\n"
         "Tavi grafiki:\n" + sched_lines,
