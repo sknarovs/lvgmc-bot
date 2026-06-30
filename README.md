@@ -5,7 +5,7 @@ Telegram bot that fetches weather data from the Latvian Environment, Geology and
 ## Commands
 
 | Command | Description |
-|---|---|---|
+|---------|-------------|
 | `/city` | Select city from keyboard |
 | `/weather` | Current weather observations |
 | `/weather Daugavpils` | Current weather for another city |
