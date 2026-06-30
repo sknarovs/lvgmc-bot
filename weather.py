@@ -144,6 +144,14 @@ def _fetch_json(url, params=None):
         return None
 
 
+POPULAR_CITIES = [
+    "Rīga", "Daugavpils", "Liepāja", "Jelgava", "Jūrmala",
+    "Ventspils", "Rēzekne", "Ogre", "Valmiera", "Jēkabpils",
+]
+
+def get_popular_cities():
+    return list(POPULAR_CITIES)
+
 def get_forecast_cities():
     global CITIES_CACHE, CITIES_CACHE_TIME
     now = datetime.now().timestamp()
@@ -155,12 +163,20 @@ def get_forecast_cities():
         data = _fetch_json(f"{BASE_URL}/weather_forecast_for_location_daily?nosaukums=R%C4%ABga")
 
     base_cities = [
-        "Rīga", "Daugavpils", "Liepāja", "Ventspils", "Jelgava",
-        "Alūksne", "Dobele", "Rēzekne", "Bauska", "Kolka",
-        "Saldus", "Gulbene", "Madona", "Sigulda", "Zosēni",
-        "Priekuļi", "Stende", "Mērsrags", "Rucava", "Dagda",
-        "Pāvilosta", "Skulte", "Zīlāni",
-        "Rūjiena", "Skrīveri", "Ainaži",
+        "Ainaži", "Aizkraukle", "Aizpute", "Aknīste", "Alūksne",
+        "Ape", "Auce", "Baldone", "Baloži", "Bauska", "Brocēni",
+        "Cēsis", "Dagda", "Daugavpils", "Dobele", "Gulbene",
+        "Ikšķile", "Ilūkste", "Jelgava", "Jēkabpils", "Jūrmala",
+        "Kolka", "Krāslava", "Kuldīga", "Kārsava", "Lielvārde",
+        "Liepāja", "Limbaži", "Ludza", "Līvāni", "Madona",
+        "Mārupe", "Mērsrags", "Ogre", "Olaine", "Piltene",
+        "Preiļi", "Priekule", "Priekuļi", "Pāvilosta", "Rucava",
+        "Rēzekne", "Rīga", "Rūjiena", "Sabile", "Salaspils",
+        "Saldus", "Saulkrasti", "Sigulda", "Skrīveri", "Skulte",
+        "Smiltene", "Stende", "Strenči", "Subate", "Talsi",
+        "Tukums", "Valdemārpils", "Valka", "Valmiera",
+        "Varakļāni", "Ventspils", "Viesīte", "Viļaka", "Zilupe",
+        "Zīlāni", "Ādaži", "Ķekava",
     ]
 
     CITIES_CACHE = base_cities
@@ -429,16 +445,23 @@ def format_synoptic_forecast(data):
     return "\n".join(lines)
 
 
+def _normalize(s):
+    table = str.maketrans({
+        "ā": "a", "č": "c", "ē": "e", "ģ": "g", "ī": "i",
+        "ķ": "k", "ļ": "l", "ņ": "n", "š": "s", "ū": "u", "ž": "z",
+    })
+    return s.lower().strip().replace(" ", "").translate(table)
+
 def find_matching_city(query, available_cities):
-    q = query.lower().strip().replace(" ", "")
+    q = _normalize(query)
     for city in available_cities:
-        if city.lower().replace(" ", "") == q:
+        if _normalize(city) == q:
             return city
     for city in available_cities:
-        if q in city.lower().replace(" ", ""):
+        if q in _normalize(city):
             return city
     for city in available_cities:
-        if city.lower().replace(" ", "").startswith(q):
+        if _normalize(city).startswith(q):
             return city
     return None
 

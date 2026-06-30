@@ -24,6 +24,7 @@ from weather import (
     format_hourly_forecast,
     format_synoptic_forecast,
     get_forecast_cities,
+    get_popular_cities,
     find_matching_city,
     icon_to_emoji,
     wind_direction_emoji,
@@ -63,12 +64,31 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def city_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("/city from user %s", update.effective_user.id)
-    cities = get_forecast_cities()
+
+    if context.args:
+        city = " ".join(context.args)
+        all_cities = get_forecast_cities()
+        match = find_matching_city(city, all_cities)
+        if match:
+            set_user_city(update.effective_user.id, match)
+            await update.message.reply_text(
+                f"✅ Pilsēta iestatīta: *{match}*",
+                parse_mode="Markdown",
+                reply_markup=ReplyKeyboardMarkup([[]], resize_keyboard=True),
+            )
+        else:
+            await update.message.reply_text(
+                f"❌ Pilsēta \"{city}\" nav atrasta.",
+                reply_markup=ReplyKeyboardMarkup([[]], resize_keyboard=True),
+            )
+        return ConversationHandler.END
+
+    cities = get_popular_cities()
     keyboard = []
     row = []
-    for i, city in enumerate(cities[:20]):
+    for i, city in enumerate(cities):
         row.append(KeyboardButton(city))
-        if (i + 1) % 3 == 0:
+        if (i + 1) % 2 == 0:
             keyboard.append(row)
             row = []
     if row:
@@ -77,7 +97,8 @@ async def city_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
     await update.message.reply_text(
-        "📍 Izvēlies pilsētu:", reply_markup=reply_markup
+        "📍 Izvēlies pilsētu (vai uzraksti jebkuru pilsētas nosaukumu):",
+        reply_markup=reply_markup,
     )
     return WAITING_FOR_CITY
 
@@ -471,4 +492,8 @@ def main():
 
 
 if __name__ == "__main__":
+    try:
+        asyncio.get_event_loop()
+    except RuntimeError:
+        asyncio.set_event_loop(asyncio.new_event_loop())
     main()
