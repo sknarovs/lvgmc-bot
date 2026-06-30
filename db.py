@@ -23,7 +23,8 @@ def init_db():
     db.executescript("""
         CREATE TABLE IF NOT EXISTS users (
             user_id INTEGER PRIMARY KEY,
-            city TEXT NOT NULL DEFAULT 'Rīga'
+            city TEXT NOT NULL DEFAULT 'Rīga',
+            language TEXT NOT NULL DEFAULT 'lv'
         );
 
         CREATE TABLE IF NOT EXISTS schedules (
@@ -35,6 +36,10 @@ def init_db():
             UNIQUE(user_id, type)
         );
     """)
+    try:
+        db.execute("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'lv'")
+    except sqlite3.OperationalError:
+        pass
     db.commit()
     logger.info("Database initialized at %s", DB_PATH)
 
@@ -52,6 +57,28 @@ def set_user_city(user_id, city):
     db.execute(
         "INSERT INTO users (user_id, city) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET city = ?",
         (user_id, city, city),
+    )
+    db.commit()
+
+
+def user_exists(user_id):
+    db = get_db()
+    return db.execute("SELECT 1 FROM users WHERE user_id = ?", (user_id,)).fetchone() is not None
+
+
+def get_user_language(user_id):
+    db = get_db()
+    row = db.execute("SELECT language FROM users WHERE user_id = ?", (user_id,)).fetchone()
+    if row:
+        return row["language"]
+    return "lv"
+
+
+def set_user_language(user_id, language):
+    db = get_db()
+    db.execute(
+        "INSERT INTO users (user_id, language) VALUES (?, ?) ON CONFLICT(user_id) DO UPDATE SET language = ?",
+        (user_id, language, language),
     )
     db.commit()
 

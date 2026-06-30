@@ -4,17 +4,19 @@ import os
 import sqlite3
 from datetime import datetime, timezone, timedelta
 
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application,
     CommandHandler,
     ContextTypes,
     ConversationHandler,
     MessageHandler,
+    CallbackQueryHandler,
     filters,
 )
 
-from db import init_db, get_user_city, set_user_city, set_schedule, remove_schedule, get_all_schedules, get_user_schedule
+from db import init_db, get_user_city, set_user_city, set_schedule, remove_schedule, get_all_schedules, get_user_schedule, get_user_language, set_user_language, user_exists
+from translations import t
 from weather import (
     get_current_weather,
     get_forecast,
@@ -46,39 +48,35 @@ logging.basicConfig(
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("/start from user %s (%s)", update.effective_user.id, update.effective_user.full_name)
-    await update.message.reply_text(
-        "🌤️ *LVĢMC Laika apstākļu bots*\n\n"
-        "Komandas:\n"
-        "/city — izvēlēties pilsētu\n"
-        "/weather — pašreizējie laika apstākļi\n"
-        "/forecast — 7 dienu prognoze\n"
-        "/forecast_h — stundu prognoze (12h)\n"
-        "/synoptic — sinoptiskā prognoze\n"
-        "/schedule HH:MM — iestatīt ikdienas prognozi\n"
-        "/unschedule — noņemt ikdienas prognozi\n"
-        "/help — palīdzība\n\n"
-        "Pēc noklusējuma: Rīga",
-        parse_mode="Markdown",
-    )
+    user_id = update.effective_user.id
+    if not user_exists(user_id):
+        user_lang = (update.effective_user.language_code or "").split("_")[0]
+        lang = "en" if user_lang == "en" else "lv"
+        set_user_language(user_id, lang)
+    else:
+        lang = get_user_language(user_id)
+    await update.message.reply_text(t("start", lang), parse_mode="Markdown")
 
 
 async def city_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     logger.info("/city from user %s", update.effective_user.id)
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
 
     if context.args:
         city = " ".join(context.args)
         all_cities = get_forecast_cities()
         match = find_matching_city(city, all_cities)
         if match:
-            set_user_city(update.effective_user.id, match)
+            set_user_city(user_id, match)
             await update.message.reply_text(
-                f"✅ Pilsēta iestatīta: *{match}*",
+                t("city_set", lang, city=match),
                 parse_mode="Markdown",
                 reply_markup=ReplyKeyboardMarkup([[]], resize_keyboard=True),
             )
         else:
             await update.message.reply_text(
-                f"❌ Pilsēta \"{city}\" nav atrasta.",
+                t("city_not_found", lang, city=city),
                 reply_markup=ReplyKeyboardMarkup([[]], resize_keyboard=True),
             )
         return ConversationHandler.END
@@ -93,11 +91,11 @@ async def city_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             row = []
     if row:
         keyboard.append(row)
-    keyboard.append([KeyboardButton("❌ Atcelt")])
+    keyboard.append([KeyboardButton(t("city_cancel_button", lang))])
 
     reply_markup = ReplyKeyboardMarkup(keyboard, one_time_keyboard=True, resize_keyboard=True)
     await update.message.reply_text(
-        "📍 Izvēlies pilsētu (vai uzraksti jebkuru pilsētas nosaukumu):",
+        t("city_prompt", lang),
         reply_markup=reply_markup,
     )
     return WAITING_FOR_CITY
@@ -105,25 +103,28 @@ async def city_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def city_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
     selected = update.message.text
-    logger.info("City selection: '%s' from user %s", selected, update.effective_user.id)
-    if selected == "❌ Atcelt":
-        await update.message.reply_text("Pilsētas izvēle atcelta.", reply_markup=ReplyKeyboardMarkup([[]], resize_keyboard=True))
+    user_id = update.effective_user.id
+    logger.info("City selection: '%s' from user %s", selected, user_id)
+    lang = get_user_language(user_id)
+
+    cancel_text = t("city_cancel_button", lang)
+    if selected == cancel_text:
+        await update.message.reply_text(t("city_cancelled", lang), reply_markup=ReplyKeyboardMarkup([[]], resize_keyboard=True))
         return ConversationHandler.END
 
     cities = get_forecast_cities()
     match = find_matching_city(selected, cities)
     if not match:
         await update.message.reply_text(
-            f"❌ Pilsēta \"{selected}\" nav atrasta.", reply_markup=ReplyKeyboardMarkup([[]], resize_keyboard=True)
+            t("city_not_found", lang, city=selected), reply_markup=ReplyKeyboardMarkup([[]], resize_keyboard=True)
         )
         return ConversationHandler.END
 
-    user_id = update.effective_user.id
     set_user_city(user_id, match)
     logger.info("User %s set city to '%s'", user_id, match)
 
     await update.message.reply_text(
-        f"✅ Pilsēta iestatīta: *{match}*",
+        t("city_set", lang, city=match),
         parse_mode="Markdown",
         reply_markup=ReplyKeyboardMarkup([[]], resize_keyboard=True),
     )
@@ -131,10 +132,12 @@ async def city_selected(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    city = get_user_city(update.effective_user.id)
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
+    city = get_user_city(user_id)
     if context.args:
         city = " ".join(context.args)
-    logger.info("/weather from user %s for city '%s'", update.effective_user.id, city)
+    logger.info("/weather from user %s for city '%s'", user_id, city)
 
     use_forecast = False
     data = get_current_weather(city)
@@ -153,7 +156,7 @@ async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     match = find_matching_city(city, cities)
 
     if data and not use_forecast:
-        msg = format_current_weather(data)
+        msg = format_current_weather(data, lang=lang)
     elif match:
         forecast_data = get_forecast(match, hourly=True)
         if forecast_data and len(forecast_data) > 0:
@@ -177,7 +180,7 @@ async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             hum = entry.get("relativais_mitrums", "-")
             wind = entry.get("veja_atrums", "-")
             wind_dir = entry.get("veja_virziens", "-")
-            wind_emoji = wind_direction_emoji(float(wind_dir) if wind_dir and wind_dir != "-" else None)
+            wind_emoji = wind_direction_emoji(float(wind_dir) if wind_dir and wind_dir != "-" else None, lang=lang)
             precip = entry.get("nokrisni_1h", "-")
             pressure = entry.get("spiediens", "-")
             time_str = entry.get("laiks", "")
@@ -187,49 +190,53 @@ async def weather_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception:
                 pass
 
-            msg = f"📍 *{match}* (prognoze {time_str})\n\n"
-            msg += f"{emoji} Temperatūra: *{temp}°C* (jūtam: {feels}°C)\n"
-            msg += f"💧 Mitrums: {hum}%\n"
-            msg += f"💨 Vējš: {wind_emoji} {wind} m/s\n"
+            msg = f"📍 *{match}* ({t('type_forecast_h', lang)} {time_str})\n\n"
+            msg += f"{emoji} {t('current_temp', lang)}: *{temp}°C* ({t('current_feels', lang)}: {feels}°C)\n"
+            msg += f"💧 {t('current_humidity', lang)}: {hum}%\n"
+            msg += f"💨 {t('current_wind', lang)}: {wind_emoji} {wind} m/s\n"
             if precip and precip != "-" and float(precip) > 0:
-                msg += f"🌧️ Nokrišņi: {precip} mm/h\n"
-            msg += f"🧭 Spiediens: {pressure} hPa\n"
-            msg += f"\n_ℹ️ Novērojumu dati nav aktuāli, rāda prognozi_"
+                msg += f"🌧️ {t('current_precip', lang)}: {precip} mm/h\n"
+            msg += f"🧭 {t('current_pressure', lang)}: {pressure} hPa\n"
+            msg += f"\n_{t('weather_fallback_note', lang)}_"
         else:
-            msg = f"❌ Nav datu par: {city}"
+            msg = t("weather_no_data", lang, city=city)
     else:
-        msg = f"❌ Pilsēta nav atrasta: {city}\n\nIzmanto /city lai izvēlētos."
+        msg = t("weather_city_not_found", lang, city=city)
 
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 
 async def forecast_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    city = get_user_city(update.effective_user.id)
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
+    city = get_user_city(user_id)
     if context.args:
         city = " ".join(context.args)
-    logger.info("/forecast from user %s for city '%s'", update.effective_user.id, city)
+    logger.info("/forecast from user %s for city '%s'", user_id, city)
 
     cities = get_forecast_cities()
     match = find_matching_city(city, cities)
     if not match:
-        await update.message.reply_text(f"❌ Pilsēta nav atrasta: {city}\n\nIzmanto /city lai izvēlētos.", parse_mode="Markdown")
+        await update.message.reply_text(t("forecast_city_not_found", lang, city=city), parse_mode="Markdown")
         return
 
     data = get_forecast(match)
     if data:
-        msg = format_daily_forecast(data)
+        msg = format_daily_forecast(data, lang=lang)
         if len(msg) > 4096:
             for i in range(0, len(msg), 4096):
                 await update.message.reply_text(msg[i:i + 4096], parse_mode="Markdown")
             return
     else:
-        msg = f"❌ Nav prognozes datu par: {match}"
+        msg = t("forecast_no_data", lang, city=match)
 
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 
 async def forecast_hourly_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    city = get_user_city(update.effective_user.id)
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
+    city = get_user_city(user_id)
     hours = 12
     if context.args:
         try:
@@ -240,34 +247,36 @@ async def forecast_hourly_command(update: Update, context: ContextTypes.DEFAULT_
                 city = " ".join(city_args)
         except ValueError:
             city = " ".join(context.args)
-    logger.info("/forecast_h from user %s for city '%s'", update.effective_user.id, city)
+    logger.info("/forecast_h from user %s for city '%s'", user_id, city)
 
     cities = get_forecast_cities()
     match = find_matching_city(city, cities)
     if not match:
-        await update.message.reply_text(f"❌ Pilsēta nav atrasta: {city}\n\nIzmanto /city lai izvēlētos.", parse_mode="Markdown")
+        await update.message.reply_text(t("forecast_city_not_found", lang, city=city), parse_mode="Markdown")
         return
 
     data = get_forecast(match, hourly=True)
     if data:
-        msg = format_hourly_forecast(data, hours=hours)
+        msg = format_hourly_forecast(data, hours=hours, lang=lang)
         if len(msg) > 4096:
             for i in range(0, len(msg), 4096):
                 await update.message.reply_text(msg[i:i + 4096], parse_mode="Markdown")
             return
     else:
-        msg = f"❌ Nav stundu prognozes datu par: {match}"
+        msg = t("forecast_hourly_no_data", lang, city=match)
 
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 
 async def synoptic_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info("/synoptic from user %s", update.effective_user.id)
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
+    logger.info("/synoptic from user %s", user_id)
     data = get_synoptic_forecast()
     if data:
-        msg = format_synoptic_forecast(data)
+        msg = format_synoptic_forecast(data, lang=lang)
     else:
-        msg = "❌ Nav pieejama sinoptiskā prognoze."
+        msg = t("synoptic_no_data", lang)
 
     if len(msg) > 4096:
         for i in range(0, len(msg), 4096):
@@ -278,20 +287,22 @@ async def synoptic_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    lang = get_user_language(user_id)
     city = get_user_city(user_id)
+
+    type_names = {"forecast": t("type_forecast", lang), "weather": t("type_weather", lang), "forecast_h": t("type_forecast_h", lang)}
 
     if not context.args:
         schedules = get_user_schedule(user_id)
         if schedules:
-            lines = ["📅 Tavi grafiki:\n"]
+            lines = [t("schedule_list_title", lang) + "\n"]
             for s in schedules:
-                lines.append(f"  ⏰ {s['hour']:02d}:{s['minute']:02d} — {s['type']} ({city})")
-            lines.append("\nLai iestatītu: /schedule HH:MM")
+                lines.append(t("schedule_list_item", lang, hour=s["hour"], minute=s["minute"], type=type_names.get(s["type"], s["type"]), city=city))
+            lines.append(t("schedule_set_hint", lang))
             await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
         else:
             await update.message.reply_text(
-                "❌ Nav iestatīts grafiks.\n\n"
-                "Lieto: `/schedule 9:00` vai `/schedule 9:00 weather`",
+                t("schedule_none", lang) + "\n\n" + t("schedule_usage", lang),
                 parse_mode="Markdown",
             )
         return
@@ -306,83 +317,86 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         hour = int(parts[0])
         minute = int(parts[1]) if len(parts) > 1 else 0
     except (ValueError, IndexError):
-        await update.message.reply_text("❌ Nepareizs formāts. Lieto: `/schedule 9:00`", parse_mode="Markdown")
+        await update.message.reply_text(t("schedule_invalid_format", lang), parse_mode="Markdown")
         return
 
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
-        await update.message.reply_text("❌ Nepalidzs laiks. Stundas 0-23, minūtes 0-59.", parse_mode="Markdown")
+        await update.message.reply_text(t("schedule_invalid_time", lang), parse_mode="Markdown")
         return
 
     set_schedule(user_id, hour, minute, schedule_type)
-    type_names = {"forecast": "dienas prognoze", "weather": "pašreizējie laika apstākļi", "forecast_h": "stundu prognoze"}
     logger.info("Schedule set: user %s, %02d:%02d %s (%s)", user_id, hour, minute, schedule_type, city)
     await update.message.reply_text(
-        f"✅ Iestatīts!\n"
-        f"⏰ {hour:02d}:{minute:02d} — {type_names.get(schedule_type, schedule_type)}\n"
-        f"📍 Pilsēta: {city}\n\n"
-        f"Lai noņemtu: /unschedule",
+        t("schedule_set", lang) + "\n"
+        + t("schedule_detail", lang, hour=hour, minute=minute, type=type_names.get(schedule_type, schedule_type), city=city)
+        + t("schedule_remove_hint", lang),
         parse_mode="Markdown",
     )
 
 
 async def unschedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    lang = get_user_language(user_id)
     logger.info("/unschedule from user %s (type=%s)", user_id, context.args[0] if context.args else "all")
-    user_id = update.effective_user.id
     schedule_type = None
     if context.args and context.args[0].lower() in ("weather", "forecast", "forecast_h"):
         schedule_type = context.args[0].lower()
 
     if schedule_type:
         remove_schedule(user_id, schedule_type)
-        await update.message.reply_text(f"✅ Noņemts {schedule_type} grafiks.", parse_mode="Markdown")
+        await update.message.reply_text(t("unschedule_removed_type", lang, type=schedule_type), parse_mode="Markdown")
     else:
         remove_schedule(user_id, "forecast")
         remove_schedule(user_id, "weather")
         remove_schedule(user_id, "forecast_h")
-        await update.message.reply_text("✅ Visi grafiki noņemti.", parse_mode="Markdown")
+        await update.message.reply_text(t("unschedule_removed_all", lang), parse_mode="Markdown")
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    logger.info("/help from user %s", update.effective_user.id)
-    city = get_user_city(update.effective_user.id)
-    schedules = get_user_schedule(update.effective_user.id)
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
+    logger.info("/help from user %s", user_id)
+    city = get_user_city(user_id)
+    schedules = get_user_schedule(user_id)
 
     sched_lines = ""
     if schedules:
-        type_names = {"forecast": "📊 Prognoze", "weather": "🌤️ Laika apstākļi", "forecast_h": "🕐 Stundu prognoze"}
+        type_names = {"forecast": t("type_forecast_emoji", lang), "weather": t("type_weather_emoji", lang), "forecast_h": t("type_forecast_h_emoji", lang)}
         for s in schedules:
             sched_lines += f"  ⏰ {s['hour']:02d}:{s['minute']:02d} — {type_names.get(s['type'], s['type'])}\n"
     else:
-        sched_lines = "  Nav iestatīts\n"
+        sched_lines = t("help_schedule_none", lang) + "\n"
 
     await update.message.reply_text(
-        "🌤️ *LVĢMC Laika apstākļu bots*\n\n"
-        "📍 *Pilsēta:*\n"
-        "/city — izvēlēties pilsētu no saraksta\n"
-        "Pašreizējā: *" + city + "*\n\n"
-        "🌧️ *Laika apstākļi:*\n"
-        "/weather — pašreizējie novērojumi\n"
-        "/weather Daugavpils — cita pilsēta\n\n"
-        "📊 *Prognoze:*\n"
-        "/forecast — 7 dienu prognoze\n"
-        "/forecast Liepāja — cita pilsēta\n\n"
-        "🕐 *Stundu prognoze:*\n"
-        "/forecast\\_h — nākamās 12 stundas\n"
-        "/forecast\\_h 24 — nākamās 24 stundas\n"
-        "/forecast\\_h Ventspils — cita pilsēta\n\n"
-        "📑 *Sinoptiskā prognoze:*\n"
-        "/synoptic — LVĢMC teksta prognoze\n\n"
-        "⏰ *Ikdienas grafiki:*\n"
-        "/schedule 9:00 — katru dienu 9:00 prognoze\n"
-        "/schedule 8:30 weather — katru dienu 8:30 laika apstākļi\n"
-        "/schedule 18:00 forecast\\_h — katru dienu 18:00 stundu prognoze\n"
-        "/schedule — parādīt pašreizējos grafikus\n"
-        "/unschedule — noņemt visus grafikus\n"
-        "/unschedule weather — noņemt konkrētu grafiku\n\n"
-        "Tavi grafiki:\n" + sched_lines,
+        t("help_text", lang, city=city, schedules=sched_lines),
         parse_mode="Markdown",
     )
+
+
+async def language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    lang = get_user_language(user_id)
+    logger.info("/language from user %s (current: %s)", user_id, lang)
+
+    keyboard = [
+        [InlineKeyboardButton("🇱🇻 Latviešu" + (" ✅" if lang == "lv" else ""), callback_data="lang_lv")],
+        [InlineKeyboardButton("🇬🇧 English" + (" ✅" if lang == "en" else ""), callback_data="lang_en")],
+    ]
+    await update.message.reply_text(
+        t("language_prompt", lang),
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
+async def language_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = update.effective_user.id
+    lang = query.data.split("_")[1]
+    set_user_language(user_id, lang)
+    logger.info("User %s set language to '%s'", user_id, lang)
+    key = "language_set_lv" if lang == "lv" else "language_set_en"
+    await query.edit_message_text(t(key, lang))
 
 
 async def send_scheduled_messages(application):
@@ -400,27 +414,28 @@ async def send_scheduled_messages(application):
         city = sched["city"]
         schedule_type = sched["type"]
         user_id = sched["user_id"]
+        lang = get_user_language(user_id)
 
         try:
             logger.info("Sending scheduled %s to user %s (city: %s)", schedule_type, user_id, city)
             if schedule_type == "weather":
                 data = get_current_weather(city)
                 if data:
-                    msg = format_current_weather(data)
+                    msg = format_current_weather(data, lang=lang)
                 else:
-                    msg = f"❌ Nav datu par: {city}"
+                    msg = t("weather_no_data", lang, city=city)
             elif schedule_type == "forecast_h":
                 forecast_data = get_forecast(city, hourly=True)
                 if forecast_data:
-                    msg = format_hourly_forecast(forecast_data, hours=12)
+                    msg = format_hourly_forecast(forecast_data, hours=12, lang=lang)
                 else:
-                    msg = f"❌ Nav stundu prognozes datu par: {city}"
+                    msg = t("forecast_hourly_no_data", lang, city=city)
             else:
                 forecast_data = get_forecast(city)
                 if forecast_data:
-                    msg = format_daily_forecast(forecast_data)
+                    msg = format_daily_forecast(forecast_data, lang=lang)
                 else:
-                    msg = f"❌ Nav prognozes datu par: {city}"
+                    msg = t("forecast_no_data", lang, city=city)
 
             for i in range(0, max(len(msg), 1), 4096):
                 chunk = msg[i:i + 4096]
@@ -481,6 +496,8 @@ def main():
     app.add_handler(CommandHandler("synoptic", synoptic_command))
     app.add_handler(CommandHandler("schedule", schedule_command))
     app.add_handler(CommandHandler("unschedule", unschedule_command))
+    app.add_handler(CommandHandler("language", language_command))
+    app.add_handler(CallbackQueryHandler(language_callback, pattern="^lang_"))
 
     async def post_init(application):
         asyncio.create_task(scheduler_loop(application))

@@ -6,6 +6,8 @@ import urllib.parse
 import ssl
 from datetime import datetime, timezone, timedelta
 
+from translations import t, WIND_DIRECTIONS_LV, WIND_DIRECTIONS_EN
+
 logger = logging.getLogger("meteobot.weather")
 
 EET = timezone(timedelta(hours=2))
@@ -99,21 +101,14 @@ DESCRIPTION_TO_EMOJI = {
     "DUSEKLI": "🌧️",
 }
 
-WIND_DIRECTIONS = {
-    0: "⬆️Z", 22: "⬆️Z", 45: "↗️ZA", 67: "↗️ZA",
-    90: "➡️A", 112: "➡️A", 135: "↘️DA", 157: "↘️DA",
-    180: "⬇️D", 202: "⬇️D", 225: "↙️DR", 247: "↙️DR",
-    270: "⬅️R", 292: "⬅️R", 315: "↖️ZR", 337: "↖️ZR",
-}
-
-
-def wind_direction_emoji(degrees):
+def wind_direction_emoji(degrees, lang="lv"):
     if degrees is None:
         return "🌀"
+    directions = WIND_DIRECTIONS_LV if lang == "lv" else WIND_DIRECTIONS_EN
     deg = float(degrees)
-    keys = sorted(WIND_DIRECTIONS.keys())
+    keys = sorted(directions.keys())
     closest = min(keys, key=lambda k: abs(k - deg))
-    return WIND_DIRECTIONS[closest]
+    return directions[closest]
 
 
 def icon_to_emoji(icon_code):
@@ -254,9 +249,9 @@ def get_synoptic_forecast():
     return data
 
 
-def format_current_weather(data):
+def format_current_weather(data, lang="lv"):
     if not data:
-        return "Nav datu."
+        return t("current_no_data", lang)
 
     temp = data.get("air_temperature_actual", "-")
     feels = data.get("air_temperature_feel", "-")
@@ -264,13 +259,13 @@ def format_current_weather(data):
     wind_speed = data.get("wind_speed_actual", "-")
     wind_gust = data.get("wind_speed_gust", "-")
     wind_dir = data.get("wind_direction_actual", "-")
-    wind_dir_emoji = wind_direction_emoji(float(wind_dir) if wind_dir and wind_dir != "-" else None)
+    wind_dir_emoji = wind_direction_emoji(float(wind_dir) if wind_dir and wind_dir != "-" else None, lang=lang)
     pressure = data.get("pressure_sea_level", "-")
     precipitation = data.get("precipitation", "-")
     description = data.get("description") or ""
     clouds = data.get("clouds", "-")
     visibility = data.get("visibility_actual", "-")
-    name = data.get("name", "Nezināma")
+    name = data.get("name", t("current_unknown", lang))
     time_str = data.get("time", "-")
 
     desc_emoji = ""
@@ -296,34 +291,34 @@ def format_current_weather(data):
     if precipitation and precipitation != "-" and precipitation != "0" and precipitation != "0.0":
         precip_str = f"{precipitation} mm"
     lines = [
-        f"📍 *{name}* — {time_str}",
-        f"",
-        f"{desc_emoji} Temperatūra: *{temp}°C* (jūtam: {feels}°C)",
-        f"💧 Mitrums: {humidity}%",
-        f"💨 Vējš: {wind_dir_emoji} {wind_speed} m/s (brāzmas: {wind_gust} m/s)",
-        f"🧭 Spiediens: {pressure} hPa",
+        t("current_title", lang, name=name, time=time_str),
+        "",
+        t("current_temp_line", lang, emoji=desc_emoji, temp=temp, feels=feels),
+        t("current_humidity_line", lang, value=humidity),
+        t("current_wind_line", lang, dir_emoji=wind_dir_emoji, speed=wind_speed, gust=wind_gust),
+        t("current_pressure_line", lang, value=pressure),
     ]
     if precip_str != "—":
-        lines.append(f"🌧️ Nokrišņi: {precip_str}")
+        lines.append(t("current_precip_line", lang, value=precip_str))
 
     if clouds and clouds != "-":
-        lines.append(f"☁️ Mākoņu daudzums: {clouds}/8")
+        lines.append(t("current_clouds_line", lang, value=clouds))
     if visibility and visibility != "-":
         vis_km = float(visibility) / 1000 if float(visibility) > 1000 else visibility
-        lines.append(f"👁️ Redzamība: {vis_km} km")
+        lines.append(t("current_visibility_line", lang, value=vis_km))
 
     if description:
-        lines.append(f"\n📋 Stāvoklis: {description}")
+        lines.append(t("current_condition_line", lang, value=description))
 
     return "\n".join(lines)
 
 
-def format_daily_forecast(data, days=7):
+def format_daily_forecast(data, days=7, lang="lv"):
     if not data:
-        return "Nav prognozes datu."
+        return t("forecast_no_data", lang)
 
     city = data[0].get("nosaukums", "") if data else ""
-    lines = [f"📅 *Prognoze: {city}*\n"]
+    lines = [t("forecast_title", lang, city=city) + "\n"]
 
     from collections import OrderedDict
     day_entries = OrderedDict()
@@ -339,12 +334,13 @@ def format_daily_forecast(data, days=7):
         day_entries[date_key].append((dt, entry))
 
     count = 0
+    days_abbr = t("days", lang)
     for date_key, entries in day_entries.items():
         if count >= days:
             break
 
         dt = entries[0][0]
-        day_of_week = ["Pir", "Sek", "Tre", "Cet", "Pie", "Ses", "Svē"][dt.weekday()]
+        day_of_week = days_abbr[dt.weekday()]
         date_str = dt.strftime(f"%d.%m ({day_of_week})")
 
         temps = []
@@ -387,12 +383,12 @@ def format_daily_forecast(data, days=7):
     return "\n".join(lines)
 
 
-def format_hourly_forecast(data, hours=12):
+def format_hourly_forecast(data, hours=12, lang="lv"):
     if not data:
-        return "Nava stundu prognozes datu."
+        return t("forecast_hourly_no_data", lang)
 
     city = data[0].get("nosaukums", "") if data else ""
-    lines = [f"🕐 *Stundu prognoze: {city}*\n"]
+    lines = [t("forecast_hourly_title", lang, city=city) + "\n"]
 
     now = _lv_now().replace(tzinfo=None)
     cutoff = now.replace(minute=0, second=0, microsecond=0) + timedelta(hours=1)
@@ -427,11 +423,11 @@ def format_hourly_forecast(data, hours=12):
     return "\n".join(lines)
 
 
-def format_synoptic_forecast(data):
+def format_synoptic_forecast(data, lang="lv"):
     if not data:
-        return "Nav sinoptiskās prognozes."
+        return t("synoptic_no_data_text", lang)
 
-    lines = ["📑 *Sinoptiskā prognoze*\n"]
+    lines = [t("synoptic_title", lang) + "\n"]
     for entry in data:
         kods = entry.get("kods", "")
         datums = entry.get("datums", "")

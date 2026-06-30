@@ -5,7 +5,7 @@ Telegram bot that fetches weather data from the Latvian Environment, Geology and
 ## Commands
 
 | Command | Description |
-|---|---|
+|---|---|---|
 | `/city` | Select city from keyboard |
 | `/weather` | Current weather observations |
 | `/weather Daugavpils` | Current weather for another city |
@@ -20,8 +20,13 @@ Telegram bot that fetches weather data from the Latvian Environment, Geology and
 | `/schedule` | View your active schedules |
 | `/unschedule` | Remove all schedules |
 | `/unschedule weather` | Remove specific schedule type |
+| `/language` | Switch between Latvian and English |
 
-Default city: **Rīga**. Data source: [videscentrs.lvgmc.lv](https://videscentrs.lvgmc.lt)
+Default city: **Rīga**. Data source: [videscentrs.lvgmc.lv](https://videscentrs.lvgmc.lv)
+
+## Language
+
+The bot supports **Latvian** (default) and **English**. On first start it auto-detects your Telegram language setting. Use `/language` to switch at any time. The synoptic forecast (`/synoptic`) remains in Latvian as it comes directly from LVĢMC.
 
 ## Deployment
 
@@ -74,7 +79,8 @@ Works out of the box — no `docker build` needed, just pull the image from GHCR
 
 - `bot.py` — Telegram bot handlers, scheduling
 - `weather.py` — LVĢMC API client, formatters with emoji
-- `db.py` — SQLite storage for user cities and schedules
+- `translations.py` — All user-facing strings in Latvian and English
+- `db.py` — SQLite storage for user cities, language preference, and schedules
 - Data persists in Docker volume `/app/data`
 
 ## License
