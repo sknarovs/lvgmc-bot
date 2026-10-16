@@ -1,5 +1,6 @@
 package lv.sknarovs.lvgmcbot;
 
+import java.time.Clock;
 import lv.sknarovs.lvgmcbot.bot.MeteoBot;
 import lv.sknarovs.lvgmcbot.bot.Scheduler;
 import lv.sknarovs.lvgmcbot.lvgmc.Lvgmc;
@@ -14,56 +15,55 @@ import org.telegram.telegrambots.meta.api.methods.updates.DeleteWebhook;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
 
-import java.time.Clock;
-
 /** Entry point: configuration from the environment, then long polling plus the daily scheduler. */
 public final class Main {
 
-    private static final Logger log = LoggerFactory.getLogger("meteobot");
+  private static final Logger log = LoggerFactory.getLogger("meteobot");
 
-    private Main() {
+  private Main() {}
+
+  static void main(String[] args) {
+    try {
+      run();
+    } catch (Exception e) {
+      log.error("Bot stopped", e);
+      // OkHttp's idle threads would otherwise keep the JVM alive for another minute.
+      System.exit(1);
+    }
+  }
+
+  private static void run() throws Exception {
+    String botToken = System.getenv().getOrDefault("TELEGRAM_BOT_TOKEN", "");
+    if (botToken.isEmpty()) {
+      log.error("TELEGRAM_BOT_TOKEN environment variable not set");
+      log.error("Usage: TELEGRAM_BOT_TOKEN=your_token ./gradlew run");
+      return;
     }
 
-    public static void main(String[] args) {
-        try {
-            run();
-        } catch (Exception e) {
-            log.error("Bot stopped", e);
-            // OkHttp's idle threads would otherwise keep the JVM alive for another minute.
-            System.exit(1);
-        }
+    log.info(
+        "Bot starting, token={}...", botToken.substring(0, Math.min(8, botToken.length())) + "***");
+    String dbPath = System.getenv().getOrDefault("DB_PATH", "meteobot.db");
+
+    try (Database db = new Database(dbPath);
+        TelegramBotsLongPollingApplication botsApplication =
+            new TelegramBotsLongPollingApplication()) {
+      db.init();
+      log.info("Database initialized");
+
+      TelegramClient telegram = new OkHttpTelegramClient(botToken);
+      User me = telegram.execute(new GetMe());
+      // Polling does not work while a webhook is set.
+      telegram.execute(new DeleteWebhook());
+
+      Clock clock = Clock.system(Lvgmc.ZONE);
+      WeatherReports reports = new WeatherReports(new Lvgmc(), clock);
+      MeteoBot bot = new MeteoBot(telegram, me.getUserName(), db, reports);
+      botsApplication.registerBot(botToken, bot);
+      try (Scheduler scheduler = new Scheduler(db, reports, bot, clock)) {
+        scheduler.start();
+        log.info("Bot is running, polling for updates...");
+        Thread.currentThread().join();
+      }
     }
-
-    private static void run() throws Exception {
-        String botToken = System.getenv().getOrDefault("TELEGRAM_BOT_TOKEN", "");
-        if (botToken.isEmpty()) {
-            log.error("TELEGRAM_BOT_TOKEN environment variable not set");
-            log.error("Usage: TELEGRAM_BOT_TOKEN=your_token ./gradlew run");
-            return;
-        }
-
-        log.info("Bot starting, token={}...", botToken.substring(0, Math.min(8, botToken.length())) + "***");
-        String dbPath = System.getenv().getOrDefault("DB_PATH", "meteobot.db");
-
-        try (Database db = new Database(dbPath);
-             TelegramBotsLongPollingApplication botsApplication = new TelegramBotsLongPollingApplication()) {
-            db.init();
-            log.info("Database initialized");
-
-            TelegramClient telegram = new OkHttpTelegramClient(botToken);
-            User me = telegram.execute(new GetMe());
-            // Polling does not work while a webhook is set.
-            telegram.execute(new DeleteWebhook());
-
-            Clock clock = Clock.system(Lvgmc.ZONE);
-            WeatherReports reports = new WeatherReports(new Lvgmc(), clock);
-            MeteoBot bot = new MeteoBot(telegram, me.getUserName(), db, reports);
-            botsApplication.registerBot(botToken, bot);
-            try (Scheduler scheduler = new Scheduler(db, reports, bot, clock)) {
-                scheduler.start();
-                log.info("Bot is running, polling for updates...");
-                Thread.currentThread().join();
-            }
-        }
-    }
+  }
 }
