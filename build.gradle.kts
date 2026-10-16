@@ -7,7 +7,7 @@ version = "1.0.0"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+        languageVersion = JavaLanguageVersion.of(libs.versions.java.get())
     }
 }
 
@@ -16,15 +16,15 @@ repositories {
 }
 
 dependencies {
-    implementation("org.telegram:telegrambots-longpolling:10.3.0")
-    implementation("org.telegram:telegrambots-client:10.3.0")
-    implementation("org.xerial:sqlite-jdbc:3.53.4.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.3")
-    implementation("ch.qos.logback:logback-classic:1.6.5")
+    implementation(libs.telegrambots.longpolling)
+    implementation(libs.telegrambots.client)
+    implementation(libs.sqlite.jdbc)
+    implementation(libs.jackson.databind)
+    implementation(libs.jackson.datatype.jsr310)
+    implementation(libs.logback.classic)
 
-    testImplementation("org.junit.jupiter:junit-jupiter:6.1.3")
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation(libs.junit.jupiter)
+    testRuntimeOnly(libs.junit.platform.launcher)
 }
 
 // sqlite-jdbc loads a native library

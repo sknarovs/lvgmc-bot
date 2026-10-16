@@ -1,0 +1,18 @@
+[versions]
+jackson = "2.22.3"
+java = "25"
+junit = "6.1.3"
+logback = "1.6.5"
+sqlite-jdbc = "3.53.4.0"
+telegrambots = "10.3.0"
+
+[libraries]
+jackson-databind = { module = "com.fasterxml.jackson.core:jackson-databind", version.ref = "jackson" }
+jackson-datatype-jsr310 = { module = "com.fasterxml.jackson.datatype:jackson-datatype-jsr310", version.ref = "jackson" }
+junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
+# No version: junit-jupiter brings in JUnit's BOM, which sets it.
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+sqlite-jdbc = { module = "org.xerial:sqlite-jdbc", version.ref = "sqlite-jdbc" }
+telegrambots-client = { module = "org.telegram:telegrambots-client", version.ref = "telegrambots" }
+telegrambots-longpolling = { module = "org.telegram:telegrambots-longpolling", version.ref = "telegrambots" }
