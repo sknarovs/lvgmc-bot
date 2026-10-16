@@ -12,6 +12,9 @@ FROM eclipse-temurin:25-jre-alpine
 
 WORKDIR /app
 
+# The database goes where the data volume is mounted, so it survives recreating the container.
+ENV DB_PATH=/app/data/meteobot.db
+
 COPY --from=build /src/build/install/lvgmc-bot/lib /app/lib
 
-CMD ["java", "-XX:+UseSerialGC", "--enable-native-access=ALL-UNNAMED", "-cp", "/app/lib/*", "lv.meteobot.Main"]
+CMD ["java", "-XX:+UseSerialGC", "--enable-native-access=ALL-UNNAMED", "-cp", "/app/lib/*", "lv.sknarovs.lvgmcbot.Main"]

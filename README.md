@@ -30,24 +30,19 @@ The bot supports **Latvian** (default) and **English**. On first start it auto-d
 
 ## Deployment
 
-### Docker Compose (recommended)
-
-```bash
-cp .env.example .env
-# Edit .env and set your TELEGRAM_BOT_TOKEN
-docker compose up -d
-```
-
-### Docker run
+### Docker
 
 ```bash
 docker run -d \
   --name meteo-bot \
   --restart unless-stopped \
   -e TELEGRAM_BOT_TOKEN=your_token \
-  -v meteobot-data:/app/data \
-  ghcr.io/sknarovs/lvgmc-bot
+  -v "$PWD/data:/app/data" \
+  ghcr.io/sknarovs/lvgmc-bot:main
 ```
+
+The database is kept in `./data`. To update, `docker pull ghcr.io/sknarovs/lvgmc-bot:main`, remove the container
+with `docker rm -f meteo-bot` and run the command again.
 
 ### Local run
 
@@ -71,32 +66,35 @@ Tests run against a local fake of the LVĢMC API serving responses recorded from
 | Variable | Description | Default |
 |---|---|---|
 | `TELEGRAM_BOT_TOKEN` | Telegram bot token (required) | — |
-| `DB_PATH` | SQLite database path | `meteobot.db` (in working directory) |
+| `DB_PATH` | SQLite database path | `meteobot.db` in the working directory; `/app/data/meteobot.db` in the Docker image |
 
 ## Raspberry Pi
 
-The Docker image supports `linux/arm64`. On your Pi:
-
-```bash
-docker compose up -d
-```
-
-Works out of the box — no `docker build` needed, just pull the image from GHCR.
+The Docker image supports `linux/arm64`, so the `docker run` command above works on a Pi as is — no `docker build`
+needed, the image is pulled from GHCR.
 
 ## Architecture
 
-Java 25, Gradle, [TelegramBots](https://github.com/rubenlagus/TelegramBots), SQLite. Sources in `src/main/java/lv/meteobot`:
+Java 25, Gradle, [TelegramBots](https://github.com/rubenlagus/TelegramBots), SQLite. Sources in `src/main/java/lv/sknarovs/lvgmcbot`:
 
 - `Main.java` — configuration from the environment, startup
-- `MeteoBot.java` — Telegram command handlers and the `/city` conversation
-- `Scheduler.java` — daily scheduled messages
-- `WeatherReports.java` — fetches LVĢMC data and composes the weather messages, for commands and schedules
-- `Lvgmc.java` — LVĢMC API client and response types, city lookup
-- `WeatherFormatter.java` — message formatting with emoji
-- `Text.java` — all user-facing messages in Latvian and English
-- `Language.java`, `ScheduleType.java`, `Markdown.java` — supported languages, schedule types, Markdown escaping
-- `Database.java` — SQLite storage for user cities, language preference, and schedules
-- Data persists in Docker volume `/app/data`
+- `bot/`
+  - `MeteoBot.java` — Telegram command handlers and the `/city` conversation
+  - `Scheduler.java` — daily scheduled messages
+- `weather/`
+  - `WeatherReports.java` — fetches LVĢMC data and composes the weather messages, for commands and schedules
+  - `WeatherFormatter.java` — message formatting with emoji
+- `lvgmc/`
+  - `Lvgmc.java` — LVĢMC API client, city lookup
+  - `Observation.java`, `ForecastEntry.java`, `SynopticForecast.java`, `Station.java` — API response types
+- `storage/Database.java` — SQLite storage for user cities, language preference, and schedules
+- `model/` — `Schedule.java`, `ScheduledDelivery.java`, `ScheduleType.java` — users' schedules and schedule types
+- `i18n/`
+  - `Language.java` — supported languages
+  - `Text.java` — all user-facing messages in Latvian and English
+- `util/Markdown.java` — Markdown escaping
+
+Tests use the same packages under `src/test/java`.
 
 ## License
 

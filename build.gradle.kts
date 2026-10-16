@@ -2,7 +2,7 @@ plugins {
     application
 }
 
-group = "lv.meteobot"
+group = "lv.sknarovs"
 version = "1.0.0"
 
 java {
@@ -31,7 +31,7 @@ dependencies {
 val jvmFlags = listOf("--enable-native-access=ALL-UNNAMED")
 
 application {
-    mainClass = "lv.meteobot.Main"
+    mainClass = "lv.sknarovs.lvgmcbot.Main"
     applicationDefaultJvmArgs = jvmFlags
 }
 
