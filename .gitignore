@@ -1,7 +1,6 @@
-__pycache__/
-*.pyc
+.gradle/
+build/
 meteobot.db
-user_cities.json
+meteobot.db-*
 .env
-venv/
 .dockerconfig

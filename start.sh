@@ -1,4 +1,3 @@
-#!/bin/bash
+#!/bin/sh
 cd "$(dirname "$0")"
-source venv/bin/activate
-python3 bot.py
+./gradlew --quiet installDist && exec build/install/lvgmc-bot/bin/lvgmc-bot
