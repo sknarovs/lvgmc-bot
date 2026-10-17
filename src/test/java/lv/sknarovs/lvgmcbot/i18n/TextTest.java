@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class TextTest {
 
-    private static final Pattern SPECIFIER = Pattern.compile("%(\\d+\\$)?[-#+ 0,(<]*\\d*(\\.\\d+)?[a-zA-Z%]");
+    private static final Pattern SPECIFIER = Pattern.compile("%(\\d++\\$)?+[-#+ 0,(<]*+\\d*+(\\.\\d++)?+[a-zA-Z%]");
 
     @Test
     void translationsHaveTheSamePlaceholders() {
