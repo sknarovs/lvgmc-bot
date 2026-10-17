@@ -202,8 +202,13 @@ class MeteoBotTest {
         assertEquals("✅ Iestatīts!\n⏰ 09:00 — pašreizējie laika apstākļi\n📍 Pilsēta: Rīga\n\nLai noņemtu: /unschedule", lastText());
 
         send(message("/schedule", USER, "private", null));
-        assertEquals("📅 Tavi grafiki:\n\n  ⏰ 07:05 — stundu prognoze (Rīga)\n  ⏰ 09:00 — pašreizējie laika apstākļi (Rīga)"
-                + "\n\nLai iestatītu: /schedule HH:MM", lastText());
+        assertEquals("""
+                📅 Tavi grafiki:
+
+                  ⏰ 07:05 — stundu prognoze (Rīga)
+                  ⏰ 09:00 — pašreizējie laika apstākļi (Rīga)
+
+                Lai iestatītu: /schedule HH:MM""", lastText());
 
         send(message("/schedule 24:00", USER, "private", null));
         assertEquals("❌ Nepareizs laiks. Stundas 0-23, minūtes 0-59.", lastText());
@@ -276,9 +281,9 @@ class MeteoBotTest {
         send(message("/language", USER, "private", null));
         assertEquals("🌐 Izvēlies valodu / Choose language:", lastText());
         InlineKeyboardMarkup keyboard = assertInstanceOf(InlineKeyboardMarkup.class, lastMessage().getReplyMarkup());
-        assertEquals("🇱🇻 Latviešu ✅", keyboard.getKeyboard().get(0).get(0).getText());
-        assertEquals("lang_lv", keyboard.getKeyboard().get(0).get(0).getCallbackData());
-        assertEquals("🇬🇧 English", keyboard.getKeyboard().get(1).get(0).getText());
+        assertEquals("🇱🇻 Latviešu ✅", keyboard.getKeyboard().get(0).getFirst().getText());
+        assertEquals("lang_lv", keyboard.getKeyboard().get(0).getFirst().getCallbackData());
+        assertEquals("🇬🇧 English", keyboard.getKeyboard().get(1).getFirst().getText());
 
         send(update("""
                 {"update_id": 1, "callback_query": {"id": "cb1", "chat_instance": "x", "data": "lang_en",

@@ -29,6 +29,7 @@ public final class Lvgmc {
 
   /** Forecast times are local Latvian time; observation times are UTC. */
   public static final ZoneId ZONE = ZoneId.of("Europe/Riga");
+
   /** Offered as buttons by /city. */
   public static final List<String> POPULAR_CITIES =
       List.of(
@@ -42,6 +43,7 @@ public final class Lvgmc {
           "Ogre",
           "Valmiera",
           "Jēkabpils");
+
   /** Cities LVĢMC publishes forecasts for. */
   public static final List<String> FORECAST_CITIES =
       List.of(
@@ -113,6 +115,7 @@ public final class Lvgmc {
           "Zīlāni",
           "Ādaži",
           "Ķekava");
+
   static final String BASE_URL = "https://videscentrs.lvgmc.lv/data";
   static final JsonMapper JSON =
       JsonMapper.builder()
@@ -249,7 +252,7 @@ public final class Lvgmc {
       return list == null ? List.of() : list;
     } catch (IOException e) {
       log.warn("Error fetching {}: {}", url, e.toString());
-    } catch (InterruptedException e) {
+    } catch (InterruptedException _) {
       Thread.currentThread().interrupt();
     }
     return List.of();

@@ -5,7 +5,7 @@ import static org.junit.jupiter.api.Assertions.fail;
 /**
  * Checks text the way the Bot API's legacy Markdown parser does (tdlib {@code parse_markdown}): every
  * {@code _ * ` [} opens an entity that must be closed by the same character ({@code ]} for {@code [}),
- * unless escaped with a backslash outside an entity. Otherwise Telegram rejects the whole message.
+ * unless escaped with a backslash outside an entity. Otherwise, Telegram rejects the whole message.
  */
 public final class MarkdownAssert {
 

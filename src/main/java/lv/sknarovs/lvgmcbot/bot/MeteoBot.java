@@ -57,6 +57,7 @@ public final class MeteoBot extends DefaultLongPollingUpdateConsumer {
   private final Database db;
   private final WeatherReports reports;
   private final Set<ConversationKey> waitingForCity = ConcurrentHashMap.newKeySet();
+
   public MeteoBot(
       TelegramClient telegram, String botUsername, Database db, WeatherReports reports) {
     this.telegram = telegram;
@@ -162,14 +163,13 @@ public final class MeteoBot extends DefaultLongPollingUpdateConsumer {
       }
       case "start" -> start(message);
       case "help" -> help(message);
-      case "weather", "weater" -> weather(message, args);
+      case "weather" -> weather(message, args);
       case "forecast" -> forecast(message, args);
       case "forecast_h" -> hourlyForecast(message, args);
       case "synoptic" -> synoptic(message);
       case "schedule" -> schedule(message, args);
       case "unschedule" -> unschedule(message, args);
       case "language" -> language(message);
-      default -> {}
     }
   }
 
@@ -286,7 +286,7 @@ public final class MeteoBot extends DefaultLongPollingUpdateConsumer {
       try {
         hours = Math.clamp(Integer.parseInt(args.getLast()), 1, MAX_FORECAST_HOURS);
         cityWords = args.subList(0, args.size() - 1);
-      } catch (NumberFormatException e) {
+      } catch (NumberFormatException _) {
         // no hours given, all words are the city
       }
     }
@@ -347,10 +347,10 @@ public final class MeteoBot extends DefaultLongPollingUpdateConsumer {
     LocalTime time;
     try {
       time = parseTime(args.getFirst());
-    } catch (NumberFormatException e) {
+    } catch (NumberFormatException _) {
       reply(message, Text.SCHEDULE_INVALID_FORMAT.get(lang), ParseMode.MARKDOWN, null);
       return;
-    } catch (DateTimeException e) {
+    } catch (DateTimeException _) {
       reply(message, Text.SCHEDULE_INVALID_TIME.get(lang), ParseMode.MARKDOWN, null);
       return;
     }
@@ -490,7 +490,7 @@ public final class MeteoBot extends DefaultLongPollingUpdateConsumer {
             .text(text)
             .parseMode(parseMode)
             .replyMarkup(keyboard);
-    if (!message.getChat().isUserChat()) {
+    if (Boolean.FALSE.equals(message.getChat().isUserChat())) {
       send.replyToMessageId(message.getMessageId());
     }
     if (message.isTopicMessage()) {

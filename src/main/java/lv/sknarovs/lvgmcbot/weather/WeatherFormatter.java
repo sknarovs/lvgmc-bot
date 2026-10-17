@@ -301,7 +301,7 @@ final class WeatherFormatter {
     }
     try {
       return Optional.of(Double.parseDouble(value));
-    } catch (NumberFormatException e) {
+    } catch (NumberFormatException _) {
       return Optional.empty();
     }
   }

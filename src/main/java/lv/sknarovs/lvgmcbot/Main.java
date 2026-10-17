@@ -22,7 +22,7 @@ public final class Main {
 
   private Main() {}
 
-  static void main(String[] args) {
+  static void main() {
     try {
       run();
     } catch (Exception e) {

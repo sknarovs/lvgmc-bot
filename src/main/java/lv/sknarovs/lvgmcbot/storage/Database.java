@@ -55,7 +55,7 @@ public final class Database implements AutoCloseable {
       try {
         // Databases created before language support lack this column.
         st.execute("ALTER TABLE users ADD COLUMN language TEXT NOT NULL DEFAULT 'lv'");
-      } catch (SQLException e) {
+      } catch (SQLException _) {
         // column already exists
       }
     }
